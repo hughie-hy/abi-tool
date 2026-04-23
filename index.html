@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3 ABI调用工具</title>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: white;
+            color: #333;
+            padding: 15px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .header-content {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            height: 33px;
+            width: auto;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 15px auto;
+            padding: 0 15px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 320px 380px 1fr;
+            gap: 15px;
+            height: calc(100vh - 80px);
+        }
+
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .left-column .config-panel {
+            flex-shrink: 0;
+        }
+
+        .left-column .history-panel {
+            flex: 1;
+            min-height: 0;
+        }
+
+        @media (max-width: 1400px) {
+            .main-grid {
+                grid-template-columns: 280px 320px 1fr;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-body {
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #73cfd3;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+        }
+
+        .network-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+
+        .network-option {
+            padding: 8px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .network-option:hover {
+            border-color: #73cfd3;
+        }
+
+        .network-option.active {
+            border-color: #73cfd3;
+            background: #e0f9fa;
+        }
+
+        .network-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .network-chain {
+            font-size: 0.65rem;
+            color: #6c757d;
+        }
+
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #73cfd3 0%, #4fb3d4 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(115, 207, 211, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #6ba3d6;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #5a92c7;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .function-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .function-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .function-item:hover {
+            background: #f8f9fa;
+        }
+
+        .function-item.active {
+            background: #e0f9fa;
+            border-left: 3px solid #73cfd3;
+        }
+
+        .function-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.85rem;
+            margin-bottom: 3px;
+        }
+
+        .function-meta {
+            font-size: 0.7rem;
+            color: #6c757d;
+            display: flex;
+            gap: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px 15px;
+            color: #6c757d;
+        }
+
+        .empty-state svg {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 0.85rem;
+        }
+
+        .params-section {
+            margin-bottom: 15px;
+        }
+
+        .params-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .params-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .param-item {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 10px;
+        }
+
+        .param-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .param-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.8rem;
+        }
+
+        .param-type {
+            background: #73cfd3;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-family: monospace;
+        }
+
+        .param-item input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .result-section {
+            margin-top: 15px;
+        }
+
+        .result-section h4 {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .result-panel {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+        }
+
+        .debug-panel {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.7rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-connected .status-dot {
+            background: #28a745;
+        }
+
+        .status-disconnected .status-dot {
+            background: #dc3545;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .toast-success {
+            background: #28a745;
+        }
+
+        .toast-error {
+            background: #dc3545;
+        }
+
+        .toast-info {
+            background: #17a2b8;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .quick-contracts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .quick-contract-btn {
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-contract-btn:hover {
+            background: #e9ecef;
+            border-color: #73cfd3;
+        }
+
+        .right-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6c757d;
+        }
+
+        .function-info-header {
+            background: #e0f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 3px solid #73cfd3;
+        }
+
+        .function-info-header h3 {
+            color: #333;
+            margin-bottom: 3px;
+            font-size: 1rem;
+        }
+
+        .function-info-header p {
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+
+        .saved-contracts {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .saved-contract-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .saved-contract-item:hover {
+            background: #e9ecef;
+            border-color: #73cfd3;
+        }
+
+        .saved-contract-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.8rem;
+            margin-bottom: 3px;
+        }
+
+        .saved-contract-address {
+            font-size: 0.7rem;
+            color: #6c757d;
+            font-family: monospace;
+        }
+
+        .saved-contract-network {
+            font-size: 0.65rem;
+            color: #6c757d;
+            padding: 2px 6px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .section-divider {
+            border-bottom: 1px solid #e9ecef;
+            margin: 15px 0;
+        }
+
+        .call-button-container {
+            padding: 12px 0;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 8px;
+        }
+
+        .function-count {
+            color: #6c757d;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <img src="https://chaintool.tech/img/topLogo.0621fc14.png" alt="ChainTool" class="logo" />
+            <div class="status-badge" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span id="connectionText">未连接</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="main-grid">
+            <!-- 左栏：网络配置和历史记录 -->
+            <div class="left-column">
+                <div class="panel config-panel">
+                    <div class="panel-header">
+                        <span>网络配置</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>选择网络</label>
+                            <div class="network-grid" id="networkSelector">
+                                <div class="network-option active" data-network="ethereum">
+                                    <div class="network-name">Ethereum</div>
+                                    <div class="network-chain">主网</div>
+                                </div>
+                                <div class="network-option" data-network="ethereum-sepolia">
+                                    <div class="network-name">Ethereum</div>
+                                    <div class="network-chain">Sepolia</div>
+                                </div>
+                                <div class="network-option" data-network="arbitrum">
+                                    <div class="network-name">Arbitrum</div>
+                                    <div class="network-chain">One</div>
+                                </div>
+                                <div class="network-option" data-network="arbitrum-sepolia">
+                                    <div class="network-name">Arbitrum</div>
+                                    <div class="network-chain">Sepolia</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>合约地址</label>
+                            <input type="text" id="contractAddress" placeholder="0x..." />
+                        </div>
+
+                        <div class="form-group">
+                            <label>合约名称</label>
+                            <input type="text" id="contractName" placeholder="如: USDC" />
+                        </div>
+
+                        <div class="form-group">
+                            <label>ABI JSON</label>
+                            <textarea id="abiInput" placeholder='粘贴合约ABI JSON...'></textarea>
+                        </div>
+
+                        <div class="btn-group" style="width: 100%; margin-bottom: 8px;">
+                            <button class="btn btn-primary" onclick="loadABI()" style="flex: 1;">
+                                加载
+                            </button>
+                        </div>
+                        <div class="btn-group" style="width: 100%;">
+                            <button class="btn btn-success" onclick="validateContract()" style="flex: 1;">
+                                验证
+                            </button>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 10px; margin-bottom: 0;">
+                            <label>快捷合约</label>
+                            <div class="quick-contracts">
+                                <button class="quick-contract-btn" onclick="loadQuickContract('usdc')">USDC</button>
+                                <button class="quick-contract-btn" onclick="loadQuickContract('usdt')">USDT</button>
+                                <button class="quick-contract-btn" onclick="loadQuickContract('wbtc')">WBTC</button>
+                                <button class="quick-contract-btn" onclick="loadQuickContract('uni')">UNI</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel history-panel">
+                    <div class="panel-header">
+                        <span>历史记录</span>
+                        <button class="btn btn-sm btn-secondary" onclick="clearHistory()">清空</button>
+                    </div>
+                    <div class="panel-body">
+                        <div id="historyList" class="saved-contracts">
+                            <div class="empty-state">
+                                <p>暂无历史记录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间：合约函数列表 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>合约函数</span>
+                    <span class="function-count" id="functionCount"></span>
+                </div>
+                <div class="panel-body">
+                    <div id="functionList" class="function-list">
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p>请先导入ABI数据</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：函数调用结果 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span>调用结果</span>
+                </div>
+                <div class="panel-body">
+                    <div id="rightContent">
+                        <div class="right-placeholder">
+                            <div class="empty-state">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
+                                </svg>
+                                <p>请从中间选择一个函数</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const NETWORKS = {
+            'ethereum': {
+                name: 'Ethereum',
+                rpc: 'https://eth-mainnet.g.alchemy.com/v2/wGRIE1HzQh7ggE8C6QlNi',
+                chainId: 1
+            },
+            'ethereum-sepolia': {
+                name: 'Ethereum Sepolia',
+                rpc: 'https://eth-sepolia.g.alchemy.com/v2/wGRIE1HzQh7ggE8C6QlNi',
+                chainId: 11155111
+            },
+            'arbitrum': {
+                name: 'Arbitrum One',
+                rpc: 'https://arb-mainnet.g.alchemy.com/v2/wGRIE1HzQh7ggE8C6QlNi',
+                chainId: 42161
+            },
+            'arbitrum-sepolia': {
+                name: 'Arbitrum Sepolia',
+                rpc: 'https://arb-sepolia.g.alchemy.com/v2/wGRIE1HzQh7ggE8C6QlNi',
+                chainId: 421614
+            }
+        };
+
+        const QUICK_CONTRACTS = {
+            'usdc': {
+                name: 'USDC',
+                address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+                network: 'ethereum',
+                abi: [{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}]
+            },
+            'usdt': {
+                name: 'USDT',
+                address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+                network: 'ethereum',
+                abi: [{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}]
+            },
+            'wbtc': {
+                name: 'WBTC',
+                address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+                network: 'ethereum',
+                abi: [{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}]
+            },
+            'uni': {
+                name: 'UNI',
+                address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+                network: 'ethereum',
+                abi: [{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}]
+            }
+        };
+
+        let currentNetwork = 'ethereum';
+        let currentABI = [];
+        let selectedFunction = null;
+        let provider = null;
+        let contract = null;
+
+        // 初始化
+        function init() {
+            initProvider();
+            setupNetworkSelector();
+            loadHistory();
+        }
+
+        // 初始化Provider
+        function initProvider() {
+            const networkConfig = NETWORKS[currentNetwork];
+            provider = new ethers.providers.JsonRpcProvider(networkConfig.rpc);
+            updateConnectionStatus();
+        }
+
+        // 设置网络选择器
+        function setupNetworkSelector() {
+            document.getElementById('networkSelector').addEventListener('click', (e) => {
+                const networkOption = e.target.closest('.network-option');
+                if (networkOption) {
+                    document.querySelectorAll('.network-option').forEach(opt => opt.classList.remove('active'));
+                    networkOption.classList.add('active');
+                    currentNetwork = networkOption.dataset.network;
+                    initProvider();
+                }
+            });
+        }
+
+        // 更新连接状态
+        async function updateConnectionStatus() {
+            const statusBadge = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
+            try {
+                await provider.getNetwork();
+                statusBadge.className = 'status-badge status-connected';
+                statusText.textContent = '已连接';
+            } catch (error) {
+                statusBadge.className = 'status-badge status-disconnected';
+                statusText.textContent = '未连接';
+            }
+        }
+
+        // 加载快捷合约
+        function loadQuickContract(key) {
+            const contractData = QUICK_CONTRACTS[key];
+            if (contractData) {
+                document.querySelectorAll('.network-option').forEach(opt => {
+                    opt.classList.remove('active');
+                    if (opt.dataset.network === contractData.network) {
+                        opt.classList.add('active');
+                        currentNetwork = contractData.network;
+                    }
+                });
+
+                document.getElementById('contractAddress').value = contractData.address;
+                document.getElementById('contractName').value = contractData.name;
+                document.getElementById('abiInput').value = JSON.stringify(contractData.abi, null, 2);
+
+                initProvider();
+                loadABI();
+            }
+        }
+
+        // 加载ABI
+        function loadABI() {
+            const abiInput = document.getElementById('abiInput').value.trim();
+            const contractAddress = document.getElementById('contractAddress').value.trim();
+            const contractName = document.getElementById('contractName').value.trim() || '未命名合约';
+
+            if (!abiInput) {
+                showToast('请输入ABI JSON数据', 'error');
+                return;
+            }
+
+            if (!contractAddress) {
+                showToast('请输入合约地址', 'error');
+                return;
+            }
+
+            if (!ethers.utils.isAddress(contractAddress)) {
+                showToast('无效的合约地址', 'error');
+                return;
+            }
+
+            try {
+                currentABI = JSON.parse(abiInput);
+                if (!Array.isArray(currentABI)) {
+                    throw new Error('ABI必须是数组格式');
+                }
+                initProvider();
+                contract = new ethers.Contract(contractAddress, currentABI, provider);
+
+                // 保存到历史
+                saveToHistory({
+                    name: contractName,
+                    address: contractAddress,
+                    network: currentNetwork,
+                    abi: currentABI,
+                    timestamp: Date.now()
+                });
+
+                displayFunctions();
+                showToast('ABI加载成功', 'success');
+            } catch (error) {
+                showToast(`ABI解析失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示函数列表
+        function displayFunctions() {
+            const functionList = document.getElementById('functionList');
+            const functions = currentABI.filter(item => item.type === 'function');
+
+            if (functions.length === 0) {
+                functionList.innerHTML = `
+                    <div class="empty-state">
+                        <p>ABI中没有找到函数</p>
+                    </div>
+                `;
+                document.getElementById('functionCount').textContent = '';
+                return;
+            }
+
+            document.getElementById('functionCount').textContent = `${functions.length} 个函数`;
+
+            functionList.innerHTML = functions.map(func => `
+                <div class="function-item" data-function="${func.name}" onclick="selectFunction('${func.name}')">
+                    <div class="function-name">${func.name}()</div>
+                    <div class="function-meta">
+                        <span>${func.stateMutability || 'nonpayable'}</span>
+                        <span>${func.inputs?.length || 0} 参数</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 选择函数
+        function selectFunction(functionName) {
+            const func = currentABI.find(item => item.name === functionName && item.type === 'function');
+            if (!func) return;
+
+            selectedFunction = func;
+
+            // 更新激活状态
+            document.querySelectorAll('.function-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.function === functionName) {
+                    item.classList.add('active');
+                }
+            });
+
+            // 显示右侧内容
+            const rightContent = document.getElementById('rightContent');
+
+            let paramsHTML = '';
+            if (func.inputs && func.inputs.length > 0) {
+                paramsHTML = func.inputs.map((input, index) => {
+                    let placeholder = `输入 ${input.type} 类型的值`;
+                    let example = '';
+
+                    if (input.type.includes('uint')) {
+                        example = ' (示例: 100)';
+                    } else if (input.type.includes('int')) {
+                        example = ' (示例: -50)';
+                    } else if (input.type === 'address') {
+                        example = ' (示例: 0x742d35...)';
+                    } else if (input.type === 'bool') {
+                        example = ' (示例: true)';
+                    } else if (input.type === 'string') {
+                        example = ' (示例: hello)';
+                    } else if (input.type.includes('bytes')) {
+                        example = ' (示例: 0x1234...)';
+                    }
+
+                    return `
+                        <div class="param-item">
+                            <div class="param-header">
+                                <span class="param-name">${input.name || `参数${index + 1}`}</span>
+                                <span class="param-type">${input.type}</span>
+                            </div>
+                            <input
+                                type="text"
+                                class="param-input"
+                                data-index="${index}"
+                                data-type="${input.type}"
+                                placeholder="${placeholder}${example}"
+                            />
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                paramsHTML = `
+                    <div class="empty-state">
+                        <p>此函数无需参数</p>
+                    </div>
+                `;
+            }
+
+            rightContent.innerHTML = `
+                <div class="function-info-header">
+                    <h3>${func.name}()</h3>
+                    <p>${func.stateMutability || 'nonpayable'} · ${func.inputs?.length || 0} 参数 · ${func.outputs?.length || 0} 返回值</p>
+                </div>
+
+                <div class="params-section">
+                    <div class="params-title">参数配置</div>
+                    <div class="params-container">
+                        ${paramsHTML}
+                    </div>
+                </div>
+
+                <div class="result-section hidden" id="resultSection">
+                    <h4>调用结果</h4>
+                    <div class="result-panel" id="resultContent"></div>
+                </div>
+
+                <div class="result-section hidden" id="debugSection">
+                    <h4>调试信息</h4>
+                    <div class="debug-panel" id="debugContent"></div>
+                </div>
+
+                <div class="call-button-container">
+                    <button class="btn btn-success" onclick="callFunction()" style="flex: 1;">
+                        调用函数
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearParams()">
+                        清空
+                    </button>
+                </div>
+            `;
+        }
+
+        // 清空参数
+        function clearParams() {
+            document.querySelectorAll('.param-input').forEach(input => {
+                input.value = '';
+            });
+            document.getElementById('resultSection')?.classList.add('hidden');
+            document.getElementById('debugSection')?.classList.add('hidden');
+        }
+
+        // 调用函数
+        async function callFunction() {
+            if (!selectedFunction || !contract) {
+                showToast('请先选择函数', 'error');
+                return;
+            }
+
+            const paramInputs = document.querySelectorAll('.param-input');
+            const params = Array.from(paramInputs).map(input => input.value.trim());
+
+            // 验证参数
+            if (selectedFunction.inputs && selectedFunction.inputs.length > 0) {
+                for (let i = 0; i < selectedFunction.inputs.length; i++) {
+                    const input = selectedFunction.inputs[i];
+                    const paramValue = params[i];
+
+                    if (!paramValue) {
+                        showToast(`请输入参数 ${i + 1}: ${input.name || `参数${i + 1}`}`, 'error');
+                        return;
+                    }
+
+                    if (input.type === 'address') {
+                        if (!ethers.utils.isAddress(paramValue)) {
+                            showToast(`参数 ${i + 1} 不是有效的地址格式`, 'error');
+                            return;
+                        }
+                    }
+
+                    if (input.type === 'bool') {
+                        if (paramValue !== 'true' && paramValue !== 'false') {
+                            showToast(`参数 ${i + 1} 必须是 "true" 或 "false"`, 'error');
+                            return;
+                        }
+                    }
+
+                    if (input.type.match(/^uint\d+$/) || input.type.match(/^int\d+$/)) {
+                        if (isNaN(paramValue) || paramValue.trim() === '') {
+                            showToast(`参数 ${i + 1} 必须是有效的数字`, 'error');
+                            return;
+                        }
+                    }
+                }
+            }
+
+            try {
+                const resultSection = document.getElementById('resultSection');
+                const resultContent = document.getElementById('resultContent');
+                const debugSection = document.getElementById('debugSection');
+
+                resultSection.classList.remove('hidden');
+                debugSection.classList.add('hidden');
+                resultContent.innerHTML = '<div class="loading"></div> 调用中...';
+
+                const result = await contract[selectedFunction.name](...params);
+
+                let formattedResult;
+                if (typeof result === 'object' && result !== null) {
+                    if (Array.isArray(result)) {
+                        formattedResult = JSON.stringify(result.map(item => formatValue(item)), null, 2);
+                    } else {
+                        formattedResult = JSON.stringify(result, (key, value) => formatValue(value), 2);
+                    }
+                } else {
+                    formattedResult = String(formatValue(result));
+                }
+
+                resultContent.textContent = formattedResult;
+                showToast('函数调用成功', 'success');
+            } catch (error) {
+                document.getElementById('resultSection').classList.remove('hidden');
+
+                const contractAddress = document.getElementById('contractAddress').value;
+                const networkConfig = NETWORKS[currentNetwork];
+                const debugSection = document.getElementById('debugSection');
+                const debugContent = document.getElementById('debugContent');
+
+                let debugInfo = {
+                    '错误时间': new Date().toLocaleString(),
+                    '网络': networkConfig.name,
+                    '合约': contractAddress,
+                    '函数': selectedFunction.name,
+                    '错误': error.message
+                };
+
+                if (error.code === 'CALL_EXCEPTION') {
+                    debugInfo['提示'] = '函数可能不存在于合约中';
+                }
+
+                debugContent.textContent = JSON.stringify(debugInfo, null, 2);
+                debugSection.classList.remove('hidden');
+
+                document.getElementById('resultContent').textContent = `错误: ${error.message}`;
+                showToast('函数调用失败', 'error');
+            }
+        }
+
+        // 验证合约函数
+        async function validateContract() {
+            if (!contract) {
+                showToast('请先加载ABI', 'error');
+                return;
+            }
+
+            const viewFunctions = currentABI.filter(item =>
+                item.type === 'function' &&
+                (item.stateMutability === 'view' || item.stateMutability === 'pure')
+            );
+
+            if (viewFunctions.length === 0) {
+                showToast('ABI中没有view/pure函数可以验证', 'error');
+                return;
+            }
+
+            let validCount = 0;
+            let invalidCount = 0;
+            let skipCount = 0;
+
+            for (const func of viewFunctions) {
+                try {
+                    if (func.inputs && func.inputs.length > 0) {
+                        skipCount++;
+                    } else {
+                        await contract[func.name]();
+                        validCount++;
+                    }
+                } catch (error) {
+                    invalidCount++;
+                }
+            }
+
+            const message = `验证完成: 成功 ${validCount} | 失败 ${invalidCount} | 跳过 ${skipCount}`;
+            showToast(message, invalidCount > 0 ? 'error' : 'success');
+        }
+
+        // 格式化值
+        function formatValue(value) {
+            if (ethers.BigNumber.isBigNumber(value)) {
+                return value.toString();
+            }
+            return value;
+        }
+
+        // 历史记录管理
+        function saveToHistory(contractData) {
+            let history = JSON.parse(localStorage.getItem('contractHistory') || '[]');
+            history = history.filter(item => item.address !== contractData.address);
+            history.unshift(contractData);
+            if (history.length > 10) history = history.slice(0, 10);
+            localStorage.setItem('contractHistory', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const historyList = document.getElementById('historyList');
+            const history = JSON.parse(localStorage.getItem('contractHistory') || '[]');
+
+            if (history.length === 0) {
+                historyList.innerHTML = `
+                    <div class="empty-state">
+                        <p>暂无历史记录</p>
+                    </div>
+                `;
+                return;
+            }
+
+            historyList.innerHTML = history.map(item => `
+                <div class="saved-contract-item" onclick="loadFromHistory('${item.address}', '${item.network}')">
+                    <div class="saved-contract-name">${item.name}</div>
+                    <div class="saved-contract-address">${item.address.slice(0, 10)}...${item.address.slice(-8)}</div>
+                    <div class="saved-contract-network">${NETWORKS[item.network]?.name || item.network}</div>
+                </div>
+            `).join('');
+        }
+
+        function loadFromHistory(address, network) {
+            const history = JSON.parse(localStorage.getItem('contractHistory') || '[]');
+            const item = history.find(h => h.address === address && h.network === network);
+
+            if (item) {
+                document.querySelectorAll('.network-option').forEach(opt => {
+                    opt.classList.remove('active');
+                    if (opt.dataset.network === item.network) {
+                        opt.classList.add('active');
+                        currentNetwork = item.network;
+                    }
+                });
+
+                document.getElementById('contractAddress').value = item.address;
+                document.getElementById('contractName').value = item.name;
+                document.getElementById('abiInput').value = JSON.stringify(item.abi, null, 2);
+
+                initProvider();
+                loadABI();
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                localStorage.removeItem('contractHistory');
+                loadHistory();
+                showToast('历史记录已清空', 'info');
+            }
+        }
+
+        // Toast提示
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

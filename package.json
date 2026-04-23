@@ -1,0 +1,16 @@
+{
+  "name": "abi-tool",
+  "version": "1.0.0",
+  "description": "Web3 ABI调用工具 - 支持EVM链智能合约调用测试",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server -p 8080 -o",
+    "dev": "npx http-server -p 8080 -o"
+  },
+  "keywords": ["web3", "abi", "ethereum", "arbitrum", "smart-contract"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
