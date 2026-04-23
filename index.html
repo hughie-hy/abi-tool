@@ -215,6 +215,15 @@
             background: #5a92c7;
         }
 
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
         .btn-sm {
             padding: 4px 8px;
             font-size: 0.75rem;
@@ -369,40 +378,6 @@
             margin-top: 10px;
         }
 
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .status-connected {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-disconnected {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-
-        .status-connected .status-dot {
-            background: #28a745;
-        }
-
-        .status-disconnected .status-dot {
-            background: #dc3545;
-        }
-
         .loading {
             display: inline-block;
             width: 14px;
@@ -428,6 +403,7 @@
             z-index: 9999;
             animation: slideIn 0.3s ease;
             font-size: 0.85rem;
+            margin-top: 10px;
         }
 
         .toast-success {
@@ -450,6 +426,17 @@
             to {
                 transform: translateX(0);
                 opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
             }
         }
 
@@ -566,16 +553,45 @@
             color: #6c757d;
             font-size: 0.75rem;
         }
+
+        .wallet-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .wallet-btn:hover {
+            background: #e9ecef;
+            border-color: #73cfd3;
+        }
+
+        .wallet-btn.connected {
+            background: #e0f9fa;
+            border-color: #73cfd3;
+            color: #0c5462;
+        }
+
+        .wallet-address {
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-content">
             <img src="https://chaintool.tech/img/topLogo.0621fc14.png" alt="ChainTool" class="logo" />
-            <div class="status-badge" id="connectionStatus">
-                <span class="status-dot"></span>
-                <span id="connectionText">未连接</span>
-            </div>
+            <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
+                <span id="walletBtnText">连接钱包</span>
+            </button>
         </div>
     </div>
 
@@ -758,19 +774,135 @@
         let selectedFunction = null;
         let provider = null;
         let contract = null;
+        let walletProvider = null;
+        let signer = null;
+        let walletAddress = null;
 
         // 初始化
         function init() {
             initProvider();
             setupNetworkSelector();
             loadHistory();
+            checkWallet();
+        }
+
+        // 检查钱包状态
+        function checkWallet() {
+            if (typeof window.ethereum !== 'undefined') {
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', handleChainChanged);
+            }
+        }
+
+        // 处理账户变化
+        function handleAccountsChanged(accounts) {
+            if (accounts.length === 0) {
+                walletAddress = null;
+                signer = null;
+                updateWalletButton();
+            } else if (accounts[0] !== walletAddress) {
+                walletAddress = accounts[0];
+                updateWalletButton();
+            }
+        }
+
+        // 处理链变化
+        function handleChainChanged() {
+            window.location.reload();
+        }
+
+        // 连接钱包
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                showToast('请先安装MetaMask钱包', 'error');
+                return;
+            }
+
+            try {
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+
+                walletAddress = accounts[0];
+                walletProvider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = walletProvider.getSigner();
+
+                // 切换到正确的网络
+                const networkConfig = NETWORKS[currentNetwork];
+                const network = await walletProvider.getNetwork();
+
+                if (network.chainId !== networkConfig.chainId) {
+                    showToast(`请切换到${networkConfig.name}网络`, 'info');
+                }
+
+                updateWalletButton();
+                showToast('钱包连接成功', 'success');
+            } catch (error) {
+                if (error.code === 4001) {
+                    showToast('用户拒绝了连接请求', 'error');
+                } else {
+                    showToast('连接钱包失败: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // 断开钱包
+        function disconnectWallet() {
+            walletAddress = null;
+            signer = null;
+            walletProvider = null;
+            updateWalletButton();
+            showToast('钱包已断开', 'info');
+        }
+
+        // 更新钱包按钮状态
+        function updateWalletButton() {
+            const walletBtn = document.getElementById('walletBtn');
+            const walletBtnText = document.getElementById('walletBtnText');
+
+            if (walletAddress) {
+                const shortAddress = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+                walletBtnText.innerHTML = `<span class="wallet-address">${shortAddress}</span>`;
+                walletBtn.classList.add('connected');
+                walletBtn.onclick = disconnectWallet;
+            } else {
+                walletBtnText.textContent = '连接钱包';
+                walletBtn.classList.remove('connected');
+                walletBtn.onclick = connectWallet;
+            }
+        }
+
+        // 切换MetaMask网络
+        async function switchMetaMaskNetwork() {
+            if (!walletProvider) {
+                showToast('请先连接钱包', 'error');
+                return false;
+            }
+
+            const networkConfig = NETWORKS[currentNetwork];
+            const network = await walletProvider.getNetwork();
+
+            if (network.chainId !== networkConfig.chainId) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x' + networkConfig.chainId.toString(16) }]
+                    });
+                    return true;
+                } catch (error) {
+                    if (error.code === 4902) {
+                        showToast('请在MetaMask中添加该网络', 'error');
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
         // 初始化Provider
         function initProvider() {
             const networkConfig = NETWORKS[currentNetwork];
             provider = new ethers.providers.JsonRpcProvider(networkConfig.rpc);
-            updateConnectionStatus();
         }
 
         // 设置网络选择器
@@ -787,19 +919,6 @@
         }
 
         // 更新连接状态
-        async function updateConnectionStatus() {
-            const statusBadge = document.getElementById('connectionStatus');
-            const statusText = document.getElementById('connectionText');
-            try {
-                await provider.getNetwork();
-                statusBadge.className = 'status-badge status-connected';
-                statusText.textContent = '已连接';
-            } catch (error) {
-                statusBadge.className = 'status-badge status-disconnected';
-                statusText.textContent = '未连接';
-            }
-        }
-
         // 加载快捷合约
         function loadQuickContract(key) {
             const contractData = QUICK_CONTRACTS[key];
@@ -883,15 +1002,21 @@
 
             document.getElementById('functionCount').textContent = `${functions.length} 个函数`;
 
-            functionList.innerHTML = functions.map(func => `
-                <div class="function-item" data-function="${func.name}" onclick="selectFunction('${func.name}')">
-                    <div class="function-name">${func.name}()</div>
-                    <div class="function-meta">
-                        <span>${func.stateMutability || 'nonpayable'}</span>
-                        <span>${func.inputs?.length || 0} 参数</span>
+            functionList.innerHTML = functions.map(func => {
+                const isWriteFunction = func.stateMutability !== 'view' && func.stateMutability !== 'pure';
+                const functionType = isWriteFunction ? '写入' : '只读';
+                const typeStyle = isWriteFunction ? 'color: #dc3545;' : 'color: #28a745;';
+
+                return `
+                    <div class="function-item" data-function="${func.name}" onclick="selectFunction('${func.name}')">
+                        <div class="function-name">${func.name}()</div>
+                        <div class="function-meta">
+                            <span style="${typeStyle}">${functionType}</span>
+                            <span>${func.inputs?.length || 0} 参数</span>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // 选择函数
@@ -956,10 +1081,14 @@
                 `;
             }
 
+            const isWriteFunction = func.stateMutability !== 'view' && func.stateMutability !== 'pure';
+            const functionType = isWriteFunction ? '写入' : '只读';
+
             rightContent.innerHTML = `
                 <div class="function-info-header">
                     <h3>${func.name}()</h3>
-                    <p>${func.stateMutability || 'nonpayable'} · ${func.inputs?.length || 0} 参数 · ${func.outputs?.length || 0} 返回值</p>
+                    <p>${func.stateMutability || 'nonpayable'} · ${functionType} · ${func.inputs?.length || 0} 参数 · ${func.outputs?.length || 0} 返回值</p>
+                    ${isWriteFunction ? '<p style="color: #dc3545; font-size: 0.75rem; margin-top: 5px;">此函数需要连接钱包并支付Gas费用</p>' : ''}
                 </div>
 
                 <div class="params-section">
@@ -980,8 +1109,8 @@
                 </div>
 
                 <div class="call-button-container">
-                    <button class="btn btn-success" onclick="callFunction()" style="flex: 1;">
-                        调用函数
+                    <button class="btn ${isWriteFunction ? 'btn-warning' : 'btn-success'}" onclick="callFunction()" style="flex: 1;">
+                        ${isWriteFunction ? '发送交易' : '调用函数'}
                     </button>
                     <button class="btn btn-secondary" onclick="clearParams()">
                         清空
@@ -1003,6 +1132,15 @@
         async function callFunction() {
             if (!selectedFunction || !contract) {
                 showToast('请先选择函数', 'error');
+                return;
+            }
+
+            // 检查是否为写入函数
+            const isWriteFunction = selectedFunction.stateMutability !== 'view' &&
+                                   selectedFunction.stateMutability !== 'pure';
+
+            if (isWriteFunction && !signer) {
+                showToast('写入函数需要连接钱包', 'error');
                 return;
             }
 
@@ -1050,23 +1188,55 @@
 
                 resultSection.classList.remove('hidden');
                 debugSection.classList.add('hidden');
-                resultContent.innerHTML = '<div class="loading"></div> 调用中...';
 
-                const result = await contract[selectedFunction.name](...params);
-
-                let formattedResult;
-                if (typeof result === 'object' && result !== null) {
-                    if (Array.isArray(result)) {
-                        formattedResult = JSON.stringify(result.map(item => formatValue(item)), null, 2);
-                    } else {
-                        formattedResult = JSON.stringify(result, (key, value) => formatValue(value), 2);
+                if (isWriteFunction) {
+                    // 写入函数：发送交易
+                    const switched = await switchMetaMaskNetwork();
+                    if (!switched) {
+                        return;
                     }
-                } else {
-                    formattedResult = String(formatValue(result));
-                }
 
-                resultContent.textContent = formattedResult;
-                showToast('函数调用成功', 'success');
+                    resultContent.innerHTML = '<div class="loading"></div> 请在MetaMask中确认交易...';
+
+                    // 使用signer连接合约
+                    const contractWithSigner = contract.connect(signer);
+                    const tx = await contractWithSigner[selectedFunction.name](...params);
+
+                    resultContent.innerHTML = '<div class="loading"></div> 交易已发送，等待确认...';
+
+                    // 等待交易确认
+                    const receipt = await tx.wait();
+
+                    const resultInfo = {
+                        '交易状态': receipt.status === 1 ? '成功' : '失败',
+                        '交易哈希': receipt.transactionHash,
+                        '区块号': receipt.blockNumber,
+                        'Gas使用': receipt.gasUsed.toString(),
+                        '区块哈希': receipt.blockHash
+                    };
+
+                    resultContent.textContent = JSON.stringify(resultInfo, null, 2);
+                    showToast('交易执行成功', 'success');
+                } else {
+                    // 只读函数：直接调用
+                    resultContent.innerHTML = '<div class="loading"></div> 调用中...';
+
+                    const result = await contract[selectedFunction.name](...params);
+
+                    let formattedResult;
+                    if (typeof result === 'object' && result !== null) {
+                        if (Array.isArray(result)) {
+                            formattedResult = JSON.stringify(result.map(item => formatValue(item)), null, 2);
+                        } else {
+                            formattedResult = JSON.stringify(result, (key, value) => formatValue(value), 2);
+                        }
+                    } else {
+                        formattedResult = String(formatValue(result));
+                    }
+
+                    resultContent.textContent = formattedResult;
+                    showToast('函数调用成功', 'success');
+                }
             } catch (error) {
                 document.getElementById('resultSection').classList.remove('hidden');
 
@@ -1080,11 +1250,16 @@
                     '网络': networkConfig.name,
                     '合约': contractAddress,
                     '函数': selectedFunction.name,
+                    '函数类型': selectedFunction.stateMutability || 'nonpayable',
                     '错误': error.message
                 };
 
                 if (error.code === 'CALL_EXCEPTION') {
-                    debugInfo['提示'] = '函数可能不存在于合约中';
+                    debugInfo['提示'] = '函数可能不存在于合约中或执行被拒绝';
+                }
+
+                if (error.code === 4001) {
+                    debugInfo['提示'] = '用户拒绝了交易';
                 }
 
                 debugContent.textContent = JSON.stringify(debugInfo, null, 2);
@@ -1204,15 +1379,42 @@
         }
 
         // Toast提示
+        let toastId = 0;
+        const activeToasts = new Map();
+
         function showToast(message, type = 'info') {
+            const id = ++toastId;
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
+            toast.dataset.id = id;
             toast.textContent = message;
+
+            // 计算现有通知数量，动态调整位置
+            const headerHeight = 80;
+            const offset = activeToasts.size * 60;
+            toast.style.top = `${headerHeight + 15 + offset}px`;
+
             document.body.appendChild(toast);
+            activeToasts.set(id, toast);
 
             setTimeout(() => {
-                toast.remove();
+                activeToasts.delete(id);
+                toast.style.animation = 'slideOut 0.3s ease';
+
+                // 重新排列剩余通知的位置
+                updateToastPositions();
+
+                setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+
+        function updateToastPositions() {
+            const headerHeight = 80;
+            const toasts = Array.from(activeToasts.values());
+            toasts.forEach((toast, index) => {
+                toast.style.transition = 'top 0.3s ease';
+                toast.style.top = `${headerHeight + 15 + index * 60}px`;
+            });
         }
 
         // 页面加载时初始化
