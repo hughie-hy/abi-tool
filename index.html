@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3 ABI调用工具</title>
+    <title>ChainCall - Web3 ABI调用工具</title>
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         * {
@@ -146,39 +146,30 @@
             resize: vertical;
         }
 
-        .network-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 6px;
-        }
-
-        .network-option {
-            padding: 8px;
-            border: 2px solid #e9ecef;
+        .network-selector {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
             border-radius: 6px;
             text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: white;
-        }
-
-        .network-option:hover {
-            border-color: #73cfd3;
-        }
-
-        .network-option.active {
-            border-color: #73cfd3;
-            background: #e0f9fa;
         }
 
         .network-name {
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            color: #333;
         }
 
-        .network-chain {
-            font-size: 0.65rem;
+        .network-status {
+            font-size: 0.75rem;
             color: #6c757d;
+            margin-top: 2px;
+        }
+
+        .network-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #333;
         }
 
         .btn {
@@ -418,6 +409,10 @@
             background: #17a2b8;
         }
 
+        .toast-removing {
+            pointer-events: none;
+        }
+
         @keyframes slideIn {
             from {
                 transform: translateX(100%);
@@ -506,6 +501,34 @@
             padding: 10px;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
+        }
+
+        .delete-contract {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f8d7da;
+            color: #dc3545;
+            border: none;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .saved-contract-item:hover .delete-contract {
+            display: flex;
+        }
+
+        .delete-contract:hover {
+            background: #dc3545;
+            color: white;
         }
 
         .saved-contract-item:hover {
@@ -588,7 +611,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <img src="https://chaintool.tech/img/topLogo.0621fc14.png" alt="ChainTool" class="logo" />
+            <img src="https://chaintool.tech/img/topLogo.0621fc14.png" alt="ChainCall" class="logo" />
             <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
                 <span id="walletBtnText">连接钱包</span>
             </button>
@@ -597,7 +620,7 @@
 
     <div class="container">
         <div class="main-grid">
-            <!-- 左栏：网络配置和历史记录 -->
+            <!-- 左栏：网络配置和合约记录 -->
             <div class="left-column">
                 <div class="panel config-panel">
                     <div class="panel-header">
@@ -605,24 +628,10 @@
                     </div>
                     <div class="panel-body">
                         <div class="form-group">
-                            <label>选择网络</label>
-                            <div class="network-grid" id="networkSelector">
-                                <div class="network-option active" data-network="ethereum">
-                                    <div class="network-name">Ethereum</div>
-                                    <div class="network-chain">主网</div>
-                                </div>
-                                <div class="network-option" data-network="ethereum-sepolia">
-                                    <div class="network-name">Ethereum</div>
-                                    <div class="network-chain">Sepolia</div>
-                                </div>
-                                <div class="network-option" data-network="arbitrum">
-                                    <div class="network-name">Arbitrum</div>
-                                    <div class="network-chain">One</div>
-                                </div>
-                                <div class="network-option" data-network="arbitrum-sepolia">
-                                    <div class="network-name">Arbitrum</div>
-                                    <div class="network-chain">Sepolia</div>
-                                </div>
+                            <label>当前网络</label>
+                            <div class="network-selector" id="networkDisplay">
+                                <div class="network-name" id="networkName">Ethereum</div>
+                                <div class="network-status" id="networkStatus">未连接钱包</div>
                             </div>
                         </div>
 
@@ -646,11 +655,6 @@
                                 加载
                             </button>
                         </div>
-                        <div class="btn-group" style="width: 100%;">
-                            <button class="btn btn-success" onclick="validateContract()" style="flex: 1;">
-                                验证
-                            </button>
-                        </div>
 
                         <div class="form-group" style="margin-top: 10px; margin-bottom: 0;">
                             <label>快捷合约</label>
@@ -666,13 +670,13 @@
 
                 <div class="panel history-panel">
                     <div class="panel-header">
-                        <span>历史记录</span>
+                        <span>合约记录</span>
                         <button class="btn btn-sm btn-secondary" onclick="clearHistory()">清空</button>
                     </div>
                     <div class="panel-body">
                         <div id="historyList" class="saved-contracts">
                             <div class="empty-state">
-                                <p>暂无历史记录</p>
+                                <p>暂无合约记录</p>
                             </div>
                         </div>
                     </div>
@@ -781,9 +785,9 @@
         // 初始化
         function init() {
             initProvider();
-            setupNetworkSelector();
             loadHistory();
             checkWallet();
+            updateNetworkDisplay();
         }
 
         // 检查钱包状态
@@ -791,6 +795,11 @@
             if (typeof window.ethereum !== 'undefined') {
                 window.ethereum.on('accountsChanged', handleAccountsChanged);
                 window.ethereum.on('chainChanged', handleChainChanged);
+
+                // 如果已经连接钱包，同步网络
+                if (window.ethereum.selectedAddress) {
+                    syncNetworkFromMetaMask();
+                }
             }
         }
 
@@ -807,14 +816,70 @@
         }
 
         // 处理链变化
+        // 处理链变化
         function handleChainChanged() {
-            window.location.reload();
+            // 延迟执行，确保MetaMask完全切换
+            setTimeout(() => {
+                syncNetworkFromMetaMask();
+            }, 500);
         }
+
+        // 从MetaMask同步网络
+        async function syncNetworkFromMetaMask() {
+            if (!walletProvider) return;
+
+            try {
+                const network = await walletProvider.getNetwork();
+                const matchedNetwork = Object.entries(NETWORKS).find(
+                    ([key, config]) => config.chainId === network.chainId
+                );
+
+                if (matchedNetwork) {
+                    const newNetwork = matchedNetwork[0];
+                    if (newNetwork !== currentNetwork) {
+                        currentNetwork = newNetwork;
+                        const networkConfig = NETWORKS[currentNetwork];
+                        provider = new ethers.providers.JsonRpcProvider(networkConfig.rpc);
+
+                        // 重新加载合约
+                        const contractAddress = document.getElementById('contractAddress').value;
+                        if (contractAddress && currentABI.length > 0) {
+                            contract = new ethers.Contract(contractAddress, currentABI, provider);
+                        }
+
+                        updateNetworkDisplay();
+                    }
+                }
+            } catch (error) {
+                console.error('同步网络失败:', error);
+            }
+        }
+
+        // 更新网络显示
+        function updateNetworkDisplay() {
+            const networkConfig = NETWORKS[currentNetwork];
+            const networkName = document.getElementById('networkName');
+            const networkStatus = document.getElementById('networkStatus');
+
+            if (networkName) {
+                networkName.textContent = networkConfig.name;
+            }
+
+            if (networkStatus) {
+                if (walletProvider) {
+                    networkStatus.textContent = '已连接钱包';
+                } else {
+                    networkStatus.textContent = '未连接钱包';
+                }
+            }
+        }
+
+        // 连接钱包
 
         // 连接钱包
         async function connectWallet() {
             if (typeof window.ethereum === 'undefined') {
-                showToast('请先安装MetaMask钱包', 'error');
+                showToast('请先安装MetaMask钱包插件', 'error');
                 return;
             }
 
@@ -827,14 +892,28 @@
                 walletProvider = new ethers.providers.Web3Provider(window.ethereum);
                 signer = walletProvider.getSigner();
 
-                // 切换到正确的网络
-                const networkConfig = NETWORKS[currentNetwork];
+                // 获取MetaMask当前网络并切换工具网络
                 const network = await walletProvider.getNetwork();
+                const matchedNetwork = Object.entries(NETWORKS).find(
+                    ([key, config]) => config.chainId === network.chainId
+                );
 
-                if (network.chainId !== networkConfig.chainId) {
-                    showToast(`请切换到${networkConfig.name}网络`, 'info');
+                if (matchedNetwork) {
+                    // 切换工具到MetaMask当前的网络
+                    currentNetwork = matchedNetwork[0];
+
+                    // 重新创建provider连接到正确网络
+                    const networkConfig = NETWORKS[currentNetwork];
+                    provider = new ethers.providers.JsonRpcProvider(networkConfig.rpc);
+
+                    // 重新加载合约
+                    const contractAddress = document.getElementById('contractAddress').value;
+                    if (contractAddress && currentABI.length > 0) {
+                        contract = new ethers.Contract(contractAddress, currentABI, provider);
+                    }
                 }
 
+                updateNetworkDisplay();
                 updateWalletButton();
                 showToast('钱包连接成功', 'success');
             } catch (error) {
@@ -852,6 +931,7 @@
             signer = null;
             walletProvider = null;
             updateWalletButton();
+            updateNetworkDisplay();
             showToast('钱包已断开', 'info');
         }
 
@@ -906,36 +986,23 @@
         }
 
         // 设置网络选择器
-        function setupNetworkSelector() {
-            document.getElementById('networkSelector').addEventListener('click', (e) => {
-                const networkOption = e.target.closest('.network-option');
-                if (networkOption) {
-                    document.querySelectorAll('.network-option').forEach(opt => opt.classList.remove('active'));
-                    networkOption.classList.add('active');
-                    currentNetwork = networkOption.dataset.network;
-                    initProvider();
-                }
-            });
-        }
+        // 网络选择器不再需要手动选择，自动跟随MetaMask
+        // setupNetworkSelector function removed
 
         // 更新连接状态
         // 加载快捷合约
         function loadQuickContract(key) {
             const contractData = QUICK_CONTRACTS[key];
             if (contractData) {
-                document.querySelectorAll('.network-option').forEach(opt => {
-                    opt.classList.remove('active');
-                    if (opt.dataset.network === contractData.network) {
-                        opt.classList.add('active');
-                        currentNetwork = contractData.network;
-                    }
-                });
+                // 切换到快捷合约对应的网络
+                currentNetwork = contractData.network;
 
                 document.getElementById('contractAddress').value = contractData.address;
                 document.getElementById('contractName').value = contractData.name;
                 document.getElementById('abiInput').value = JSON.stringify(contractData.abi, null, 2);
 
                 initProvider();
+                updateNetworkDisplay();
                 loadABI();
             }
         }
@@ -970,15 +1037,21 @@
                 contract = new ethers.Contract(contractAddress, currentABI, provider);
 
                 // 保存到历史
+                const networkConfig = NETWORKS[currentNetwork];
                 saveToHistory({
                     name: contractName,
                     address: contractAddress,
                     network: currentNetwork,
+                    networkName: networkConfig.name,
                     abi: currentABI,
                     timestamp: Date.now()
                 });
 
                 displayFunctions();
+
+                // 自动验证ABI（只验证无参数函数）
+                autoValidateABI();
+
                 showToast('ABI加载成功', 'success');
             } catch (error) {
                 showToast(`ABI解析失败: ${error.message}`, 'error');
@@ -1270,6 +1343,36 @@
             }
         }
 
+        // 自动验证ABI（静默验证，只在有严重问题时提示）
+        async function autoValidateABI() {
+            const viewFunctions = currentABI.filter(item =>
+                item.type === 'function' &&
+                (item.stateMutability === 'view' || item.stateMutability === 'pure') &&
+                (!item.inputs || item.inputs.length === 0)
+            );
+
+            if (viewFunctions.length === 0) return;
+
+            let validCount = 0;
+            let invalidCount = 0;
+
+            for (const func of viewFunctions) {
+                try {
+                    await contract[func.name]();
+                    validCount++;
+                } catch (error) {
+                    invalidCount++;
+                }
+            }
+
+            // 如果超过50%的无参数函数失败，提示用户ABI可能有问题
+            if (invalidCount > validCount && invalidCount > 0) {
+                setTimeout(() => {
+                    showToast('警告：多个函数调用失败，ABI可能与合约不匹配', 'error', 5000);
+                }, 1000);
+            }
+        }
+
         // 验证合约函数
         async function validateContract() {
             if (!contract) {
@@ -1316,7 +1419,7 @@
             return value;
         }
 
-        // 历史记录管理
+        // 合约记录管理
         function saveToHistory(contractData) {
             let history = JSON.parse(localStorage.getItem('contractHistory') || '[]');
             history = history.filter(item => item.address !== contractData.address);
@@ -1326,6 +1429,22 @@
             loadHistory();
         }
 
+        function deleteContract(event, address, network) {
+            event.stopPropagation(); // 阻止触发加载合约
+
+            let history = JSON.parse(localStorage.getItem('contractHistory') || '[]');
+            history = history.filter(item => !(item.address === address && item.network === network));
+
+            if (history.length === 0) {
+                localStorage.removeItem('contractHistory');
+            } else {
+                localStorage.setItem('contractHistory', JSON.stringify(history));
+            }
+
+            loadHistory();
+            showToast('合约记录已删除', 'info');
+        }
+
         function loadHistory() {
             const historyList = document.getElementById('historyList');
             const history = JSON.parse(localStorage.getItem('contractHistory') || '[]');
@@ -1333,17 +1452,18 @@
             if (history.length === 0) {
                 historyList.innerHTML = `
                     <div class="empty-state">
-                        <p>暂无历史记录</p>
+                        <p>暂无合约记录</p>
                     </div>
                 `;
                 return;
             }
 
-            historyList.innerHTML = history.map(item => `
+            historyList.innerHTML = history.map((item, index) => `
                 <div class="saved-contract-item" onclick="loadFromHistory('${item.address}', '${item.network}')">
+                    <button class="delete-contract" onclick="deleteContract(event, '${item.address}', '${item.network}')" title="删除记录">×</button>
                     <div class="saved-contract-name">${item.name}</div>
                     <div class="saved-contract-address">${item.address.slice(0, 10)}...${item.address.slice(-8)}</div>
-                    <div class="saved-contract-network">${NETWORKS[item.network]?.name || item.network}</div>
+                    <div class="saved-contract-network">${item.networkName || item.network}</div>
                 </div>
             `).join('');
         }
@@ -1353,28 +1473,23 @@
             const item = history.find(h => h.address === address && h.network === network);
 
             if (item) {
-                document.querySelectorAll('.network-option').forEach(opt => {
-                    opt.classList.remove('active');
-                    if (opt.dataset.network === item.network) {
-                        opt.classList.add('active');
-                        currentNetwork = item.network;
-                    }
-                });
+                currentNetwork = item.network;
 
                 document.getElementById('contractAddress').value = item.address;
                 document.getElementById('contractName').value = item.name;
                 document.getElementById('abiInput').value = JSON.stringify(item.abi, null, 2);
 
                 initProvider();
+                updateNetworkDisplay();
                 loadABI();
             }
         }
 
         function clearHistory() {
-            if (confirm('确定要清空所有历史记录吗？')) {
+            if (confirm('确定要清空所有合约记录吗？')) {
                 localStorage.removeItem('contractHistory');
                 loadHistory();
-                showToast('历史记录已清空', 'info');
+                showToast('合约记录已清空', 'info');
             }
         }
 
@@ -1398,13 +1513,20 @@
             activeToasts.set(id, toast);
 
             setTimeout(() => {
+                // 先从Map中移除，这样其他通知可以立即更新位置
                 activeToasts.delete(id);
-                toast.style.animation = 'slideOut 0.3s ease';
+
+                // 标记为正在移除
+                toast.classList.add('toast-removing');
 
                 // 重新排列剩余通知的位置
                 updateToastPositions();
 
-                setTimeout(() => toast.remove(), 300);
+                // 播放消失动画
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }, 50);
             }, 3000);
         }
 
