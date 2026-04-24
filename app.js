@@ -61,13 +61,18 @@ let walletAddress = null;
 function init() {
     initProvider();
     loadHistory();
-    checkWallet();
+    // 延迟检查钱包，确保钱包扩展已完成注入
+    setTimeout(checkWallet, 100);
     updateNetworkDisplay();
 }
 
 // 检查钱包状态
 function checkWallet() {
-    if (typeof window.ethereum !== 'undefined') {
+    // 支持 MetaMask、Trust Wallet、Coinbase Wallet 等
+    const ethereum = window.ethereum || window.web3?.currentProvider;
+
+    if (ethereum) {
+        window.ethereum = ethereum; // 确保全局可用
         window.ethereum.on('accountsChanged', handleAccountsChanged);
         window.ethereum.on('chainChanged', handleChainChanged);
 
@@ -150,12 +155,16 @@ function updateNetworkDisplay() {
 
 // 连接钱包
 async function connectWallet() {
-    if (typeof window.ethereum === 'undefined') {
+    const ethereum = window.ethereum || window.web3?.currentProvider;
+
+    if (!ethereum) {
         showToast('请先安装MetaMask钱包插件', 'error');
         return;
     }
 
     try {
+        // 确保使用正确的 ethereum 对象
+        window.ethereum = ethereum;
         const accounts = await window.ethereum.request({
             method: 'eth_requestAccounts'
         });
