@@ -121,8 +121,9 @@
         </div>
     </div>
 
+    <script src="config.js" onerror="this.remove()"></script>
     <script>
-        const NETWORKS = {
+        const NETWORKS = window.__RPC_CONFIG__ || {
             'ethereum': {
                 name: 'Ethereum',
                 rpc: 'https://eth.llamarpc.com',

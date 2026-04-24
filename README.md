@@ -33,6 +33,22 @@
 npm install
 ```
 
+### 配置 RPC 节点（可选）
+
+如需使用 Alchemy 节点，复制示例配置文件：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件，填入你的 Alchemy API Key：
+
+```
+ALCHEMY_API_KEY=your_alchemy_api_key_here
+```
+
+不配置则使用公共 RPC 节点（无需 API Key）。
+
 ### 启动服务
 
 ```bash
@@ -40,6 +56,8 @@ npm start
 ```
 
 服务将在 `http://localhost:8080` 启动。
+
+首次启动时会自动生成 `config.js` 配置文件。
 
 ### 直接使用
 
