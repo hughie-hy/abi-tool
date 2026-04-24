@@ -1,4 +1,34 @@
-const NETWORKS = window.__RPC_CONFIG__ || {
+// AES 解密
+function decodeRpcConfig(config) {
+    if (!config) return null;
+    if (typeof CryptoJS === 'undefined') {
+        console.error('CryptoJS 未加载');
+        return null;
+    }
+
+    const decoded = {};
+    for (const [networkKey, value] of Object.entries(config)) {
+        try {
+            // 使用 base64 编码的密钥
+            const rawKey = 'ChainTool-2024-Web3';
+            const encodedKey = btoa(rawKey);
+            const decrypted = CryptoJS.AES.decrypt(value.rpc, encodedKey);
+            const decryptedStr = decrypted.toString(CryptoJS.enc.Utf8);
+
+            decoded[networkKey] = {
+                name: value.name,
+                rpc: decryptedStr,
+                chainId: value.chainId
+            };
+        } catch (error) {
+            console.error('解密 ' + networkKey + ' 失败:', error);
+            return null;
+        }
+    }
+    return decoded;
+}
+
+const NETWORKS = (window.__RPC_CONFIG_ENCRYPTED__ ? decodeRpcConfig(window.__RPC_CONFIG_ENCRYPTED__) : null) || window.__RPC_CONFIG__ || {
     'ethereum': {
         name: 'Ethereum',
         rpc: 'https://eth.llamarpc.com',

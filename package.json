@@ -10,10 +10,17 @@
     "start": "npx http-server -p 8080 -o",
     "dev": "npx http-server -p 8080 -o"
   },
-  "keywords": ["web3", "abi", "ethereum", "arbitrum", "smart-contract"],
+  "keywords": [
+    "web3",
+    "abi",
+    "ethereum",
+    "arbitrum",
+    "smart-contract"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "crypto-js": "^4.2.0",
     "http-server": "^14.1.1"
   }
 }
